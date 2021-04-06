@@ -30,8 +30,9 @@
 #define EFPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::EliasFanoPGMIndex, K)
 #define CPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::CompressedPGMIndex, K)
 
+#define ALL_CLASSES(K) CPGM_CLASSES(K)
 //#define ALL_CLASSES(K) PGM_CLASSES(K), BPGM_CLASSES(K), EFPGM_CLASSES(K), CPGM_CLASSES(K)
-#define ALL_CLASSES(K) BPGM_CLASSES(K)
+
 template<typename K>
 void read_ints_helper(args::PositionalList<std::string> &files,
                       size_t record_size,
@@ -118,11 +119,11 @@ int main(int argc, char **argv) {
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         OUT_VERBOSE("Total memory for data is " << to_metric(n * record_size, 2, true) << "B")
 
-        while (true) {
-
-                //benchmark_binary_search<uint64_t>(name, gen_data(), record_size, ratio.Get());
-                //benchmark_all<uint64_t, ALL_CLASSES(uint64_t) >(name, gen_data(), record_size, ratio.Get(), workload.Get());
-                benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t) >(record_size, ratio.Get());
+        while (true)
+        {
+            //benchmark_binary_search<uint64_t>(name, gen_data(), record_size, ratio.Get());
+            //benchmark_all<uint64_t, ALL_CLASSES(uint64_t) >(name, gen_data(), record_size, ratio.Get(), workload.Get());
+            benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t) >(record_size, ratio.Get());
         }
     }
 

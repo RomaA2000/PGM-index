@@ -297,6 +297,7 @@ benchmark(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::val
   auto t2 = timer::now();
   uint64_t cnt = 0;
   for (auto &q : queries) {
+    //std::cout << q << std::endl;
     auto range = index.search(q);
     auto lo = begin + range.lo;
     auto hi = begin + range.hi;
@@ -345,8 +346,9 @@ void benchmark_presaved(size_t record_size, double lookup_ratio) {
   std::vector<K> data;
   K value2;
   for (size_t i = 0; i < 100000; ++i) {
-    input_file_data >> value2;
-    data.push_back(value2);
+
+        input_file_data >> value2;
+        data.push_back(value2);
   }
   //data.push_back (2627100158822964);
   //data.push_back (2627100161141349);
