@@ -30,10 +30,8 @@
 #define EFPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::EliasFanoPGMIndex, K)
 #define CPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::CompressedPGMIndex, K)
 
-#define ALL_CLASSES(K) CPGM_CLASSES(K)
-
-//* PGM_CLASSES(K), BPGM_CLASSES(K), EFPGM_CLASSES(K), *//
-
+//#define ALL_CLASSES(K) PGM_CLASSES(K), BPGM_CLASSES(K), EFPGM_CLASSES(K), CPGM_CLASSES(K)
+#define ALL_CLASSES(K) BPGM_CLASSES(K)
 template<typename K>
 void read_ints_helper(args::PositionalList<std::string> &files,
                       size_t record_size,
@@ -103,7 +101,7 @@ int main(int argc, char **argv) {
     if (synthetic) {
         auto record_size = value_size.Get() + sizeof(uint64_t);
         auto n = synthetic.Get();
-        std::mt19937 generator(8771425);
+        std::mt19937 generator(std::random_device{}());
         auto gen = [&](auto distribution) {
             std::vector<uint64_t> out(n);
             std::generate(out.begin(), out.end(), [&] { return distribution(generator); });
@@ -113,17 +111,19 @@ int main(int argc, char **argv) {
         std::vector<std::pair<std::string, std::function<std::vector<char>()>>> distributions = {
             {"uniform_dense", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * 1000))},
             {"uniform_sparse", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * n))},
-            {"binomial", std::bind(gen, std::binomial_distribution<uint64_t>(1ull << 50))}
-//            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<uint64_t>(1ull << 50, 0.3))},
-//            {"geometric", std::bind(gen, std::geometric_distribution<uint64_t>(1e-10))},
+            {"binomial", std::bind(gen, std::binomial_distribution<uint64_t>(1ull << 50))},
+            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<uint64_t>(1ull << 50, 0.3))},
+            {"geometric", std::bind(gen, std::geometric_distribution<uint64_t>(1e-10))},
         };
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         OUT_VERBOSE("Total memory for data is " << to_metric(n * record_size, 2, true) << "B")
-        benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t)>(record_size, ratio.Get());
-//        for (auto&[name, gen_data] : distributions) {
-//          benchmark_presaved<uint64_t>(name, record_size, ratio.Get());
-//          benchmark_all<uint64_t, ALL_CLASSES(uint64_t) >(name, gen_data(), record_size, ratio.Get(), workload.Get());
-//        }
+
+        while (true) {
+
+                //benchmark_binary_search<uint64_t>(name, gen_data(), record_size, ratio.Get());
+                //benchmark_all<uint64_t, ALL_CLASSES(uint64_t) >(name, gen_data(), record_size, ratio.Get(), workload.Get());
+                benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t) >(record_size, ratio.Get());
+        }
     }
 
     if (i64.Get())

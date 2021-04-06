@@ -300,7 +300,6 @@ benchmark(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::val
     auto range = index.search(q);
     auto lo = begin + range.lo;
     auto hi = begin + range.hi;
-
     cnt += std::distance(begin, std::lower_bound(lo, hi, q));
   }
   [[maybe_unused]] volatile auto tmp = cnt;
@@ -319,7 +318,7 @@ generate_queries(RandomIt first, RandomIt last, double lookup_ratio, size_t max_
   auto num_lookups = size_t(num_queries * lookup_ratio);
   std::uniform_int_distribution<value_type> key_distribution(*first, *std::prev(last));
   std::uniform_int_distribution<value_type> pos_distribution(0, n - 1);
-  std::mt19937 generator(3831520941);
+  std::mt19937 generator(std::random_device{}());
   std::vector<value_type> queries;
   queries.reserve(num_queries);
 
@@ -338,21 +337,59 @@ struct type_wrapper { using type = T; };
 template<typename... Ts, typename TF>
 void for_types(TF &&f) { (f(type_wrapper<Ts>{}), ...); }
 
+
+template<typename K, typename... Args>
+void benchmark_presaved(size_t record_size, double lookup_ratio) {
+
+  std::ifstream input_file_data("./vector_data.txt");
+  std::vector<K> data;
+  K value2;
+  for (size_t i = 0; i < 100000; ++i) {
+    input_file_data >> value2;
+    data.push_back(value2);
+  }
+  //data.push_back (2627100158822964);
+  //data.push_back (2627100161141349);
+  K value1;
+  std::vector<K> queries;
+  std::ifstream input_file_queries("./vector_queries.txt");
+
+  /*for (size_t i = 0; i < 1; ++i) {
+    input_file_queries >> value1;
+    queries.push_back(value1);
+  }*/
+  queries.push_back(2627100159032606);
+
+//  queries = generate_queries(data.begin(), data.end(), lookup_ratio);
+  auto m = queries.size();
+  OUT_VERBOSE("Generated " << to_metric(m) << " queries, " << to_metric(m * lookup_ratio) << " are lookups")
+
+  //auto begin = RecordIterator<K>(data.data(), record_size);
+  //auto end = RecordIterator<K>(data.data() + data.size(), record_size);
+
+  for_types<Args...>([&](auto t) {
+    using class_type = typename decltype(t)::type;
+    auto name = demangle(typeid(class_type).name());
+    auto[build_ms, query_ns, bytes] = benchmark<class_type>(data.begin(), data.end(), queries);
+    std::cout << name << "\"," << build_ms << "," << bytes << "," << query_ns << std::endl;
+  });
+}
+
+
 template<typename K, typename... Args>
 void benchmark_all(const std::string &filename,
                    const std::vector<char> &data,
                    size_t record_size,
                    double lookup_ratio,
                    const std::string &workload) {
-  system("rm ./vector_data.txt");
-  system("rm ./vector_queries.txt");
-  std::ofstream output_file_data("./vector_data.txt");
-  std::ostream_iterator<char> output_iterator_data(output_file_data, "");
-  std::copy(data.begin(), data.end(), output_iterator_data);
-
+    system("rm ./vector_data.txt");
+    system("rm ./vector_queries.txt");
   auto begin = RecordIterator<K>(data.data(), record_size);
   auto end = RecordIterator<K>(data.data() + data.size(), record_size);
-
+    std::ofstream output_file_data("./vector_data.txt");
+    std::ostream_iterator<K> output_iterator_data(output_file_data, " ");
+    std::copy(begin, end, output_iterator_data);
+    output_file_data.close();
   std::vector<K> queries;
   if (!workload.empty())
     queries = read_data_binary<K>(workload, false);
@@ -362,53 +399,18 @@ void benchmark_all(const std::string &filename,
     OUT_VERBOSE("Generated " << to_metric(m) << " queries, " << to_metric(m * lookup_ratio) << " are lookups")
   }
 
-  std::ofstream output_file_queries("./vector_queries.txt");
-  std::ostream_iterator<K> output_iterator_queries(output_file_queries, " ");
-  std::copy(queries.begin(), queries.end(), output_iterator_queries);
-
+    std::ofstream output_file_queries("./vector_queries.txt");
+    std::ostream_iterator<K> output_iterator_queries(output_file_queries, " ");
+    std::copy(queries.begin(), queries.end(), output_iterator_queries);
+    output_file_queries.close();
   for_types<Args...>([&](auto t) {
     using class_type = typename decltype(t)::type;
     auto name = demangle(typeid(class_type).name());
     auto[build_ms, query_ns, bytes] = benchmark<class_type>(begin, end, queries);
-    std::cout << filename << ",\"" << name << "\"," << build_ms << "," << bytes << "," << query_ns << std::endl;
+    std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
   });
 }
 
-
-template<typename K, typename... Args>
-void benchmark_presaved(size_t record_size, double lookup_ratio) {
-
-  std::ifstream input_file_data("/Users/romanageev/CLionProjects/PGM-index/vector_data.txt");
-  std::vector<K> data;
-  K value2;
-  for (size_t i = 0; i < 100000; ++i) {
-    input_file_data >> value2;
-    data.push_back(value2);
-  }
-  K value1;
-  std::vector<K> queries;
-  queries.push_back(2627100159032606);
-//  std::ifstream input_file_queries("/Users/romanageev/CLionProjects/PGM-index/vector_queries.txt");
-//
-//  for (size_t i = 0; i < 10000; ++i) {
-//    input_file_queries >> value1;
-//    queries.push_back(value1);
-//  }
-
-//  queries = generate_queries(data.begin(), data.end(), lookup_ratio);
-  auto m = queries.size();
-  OUT_VERBOSE("Generated " << to_metric(m) << " queries, " << to_metric(m * lookup_ratio) << " are lookups");
-
-//  auto begin = RecordIterator<K>(data.data(), record_size);
-//  auto end = RecordIterator<K>(data.data() + data.size(), record_size);
-
-  for_types<Args...>([&](auto t) {
-    using class_type = typename decltype(t)::type;
-    auto name = demangle(typeid(class_type).name());
-    auto[build_ms, query_ns, bytes] = benchmark<class_type>(data.begin(), data.end(), queries);
-    std::cout << name << "\"," << build_ms << "," << bytes << "," << query_ns << std::endl;
-  });
-}
 
 template<typename RandomIt1, typename RandomIt2, typename K>
 size_t
@@ -421,18 +423,17 @@ eytzinger_maker(RandomIt1 begin, RandomIt1 end, RandomIt2 begin_prev_data, size_
   return i;
 }
 
+
 template<typename K>
 void benchmark_binary_search(const std::string &filename,
                              const std::vector<char> &data,
                              size_t record_size,
                              double lookup_ratio) {
-
   auto begin = RecordIterator<K>(data.data(), record_size);
   auto end = RecordIterator<K>(data.data() + data.size(), record_size);
   auto queries = generate_queries(begin, end, lookup_ratio);
-
-
   auto query_ns = benchmark_simple_binary(begin, end, queries);
+
   auto t_start = timer::now();
   std::vector<char> data_optimized = data;
 
@@ -445,11 +446,13 @@ void benchmark_binary_search(const std::string &filename,
 
   queries = generate_queries(begin, end, lookup_ratio);
   auto query_ns_optimized = benchmark_binary(begin_optimized, end_optimized, queries);
-  std::cout << filename << ",\"" << "Simple_binary_search" << "\"," << 0 << "," << query_ns << std::endl;
-  std::cout << filename << ",\"" << "Optimized_binary_search" << "\"," << building << "," << query_ns_optimized << std::endl;
+  std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
+  std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized
+            << std::endl;
   queries = generate_queries(begin, end, lookup_ratio);
   query_ns_optimized = benchmark_binary(begin_optimized, end_optimized, queries);
-  std::cout << filename << ",\"" << "Optimized_binary_search_2" << "\"," << building << "," << query_ns_optimized << std::endl;
+  std::cout << filename << ",\"" << "Optimized_binary_search_2" << "\", " << building << ", " << query_ns_optimized
+            << std::endl;
 }
 
 
@@ -460,12 +463,30 @@ benchmark_simple_binary(RandomIt begin, RandomIt end, const std::vector<typename
   uint64_t cnt = 0;
   for (auto &q : queries) {
     cnt += std::distance(begin, std::lower_bound(begin, end, q));
+    //std::lower_bound(begin, end, q);
   }
   [[maybe_unused]] volatile auto tmp = cnt;
   auto t3 = timer::now();
   auto query_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count() / queries.size();
   return query_ns;
 }
+
+
+template<typename RandomIt>
+uint64_t
+benchmark_binary(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::value_type> &queries) {
+  auto t2 = timer::now();
+  uint64_t cnt = 0;
+  for (auto &q : queries) {
+    cnt += std::distance(begin, eytzinger(begin, end, q));
+    //eytzinger(begin, end, q);
+  }
+  [[maybe_unused]] volatile auto tmp = cnt;
+  auto t3 = timer::now();
+  auto query_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count() / queries.size();
+  return query_ns;
+}
+
 
 template<typename RandomIt>
 RandomIt
@@ -478,18 +499,4 @@ eytzinger(RandomIt begin, RandomIt end, typename RandomIt::value_type q) {
   }
   k >>= __builtin_ffs(~k);
   return begin + (k - 1);
-}
-
-template<typename RandomIt>
-uint64_t
-benchmark_binary(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::value_type> &queries) {
-  auto t2 = timer::now();
-  uint64_t cnt = 0;
-  for (auto &q : queries) {
-    cnt += std::distance(begin, eytzinger(begin, end, q));
-  }
-  [[maybe_unused]] volatile auto tmp = cnt;
-  auto t3 = timer::now();
-  auto query_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count() / queries.size();
-  return query_ns;
 }
