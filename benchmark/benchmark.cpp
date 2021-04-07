@@ -24,15 +24,23 @@
 
 #define FOR_EACH_EPSILON(C, K) C<K, 8>, C<K, 16>, C<K, 32>, C<K, 64>, C<K, 128>, C<K, 256>, \
                                C<K, 512>, C<K, 1024>, C<K, 2048>, C<K, 4096>
+#define FOR_EACH_EPSILON_FLOATING(C, K) C<K, 8, 4, K>, C<K, 16, 4, K>, C<K, 32, 4, K>, C<K, 64, 4, K>, C<K, 128, 4, K>, C<K, 256, 4, K>, \
+                               C<K, 512, 4, K>, C<K, 1024, 4, K>, C<K, 2048, 4, K>, C<K, 4096, 4, K>
 
 #define PGM_CLASSES(K) FOR_EACH_EPSILON(pgm::PGMIndex, K)
 #define BPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::BucketingPGMIndex, K)
 #define EFPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::EliasFanoPGMIndex, K)
 #define CPGM_CLASSES(K) FOR_EACH_EPSILON(pgm::CompressedPGMIndex, K)
 
-#define ALL_CLASSES(K) CPGM_CLASSES(K)
+#define PGM_CLASSES_FLOATING(K) FOR_EACH_EPSILON(pgm::PGMIndex, K)
+#define BPGM_CLASSES_FLOATING(K) FOR_EACH_EPSILON(pgm::BucketingPGMIndex, K)
+#define EFPGM_CLASSES_FLOATING(K) FOR_EACH_EPSILON(pgm::EliasFanoPGMIndex, K)
+#define CPGM_CLASSES_FLOATING(K) FOR_EACH_EPSILON(pgm::CompressedPGMIndex, K)
 
-//* PGM_CLASSES(K), BPGM_CLASSES(K), EFPGM_CLASSES(K), *//
+#define ALL_CLASSES(K) PGM_CLASSES(K), BPGM_CLASSES(K), EFPGM_CLASSES(K), CPGM_CLASSES(K)
+
+#define ALL_CLASSES_FLOATING(K) PGM_CLASSES_FLOATING(K)
+//BPGM_CLASSES_FLOATING(K), EFPGM_CLASSES_FLOATING(K), CPGM_CLASSES_FLOATING(K)
 
 template<typename K>
 void read_ints_helper(args::PositionalList<std::string> &files,
@@ -105,31 +113,30 @@ int main(int argc, char **argv) {
         auto n = synthetic.Get();
         std::mt19937 generator(8771425);
         auto gen = [&](auto distribution) {
-            std::vector<uint64_t> out(n);
+            std::vector<long double> out(n);
             std::generate(out.begin(), out.end(), [&] { return distribution(generator); });
             std::sort(out.begin(), out.end());
-            return to_records(out, record_size);
+            return out;
         };
-        std::vector<std::pair<std::string, std::function<std::vector<char>()>>> distributions = {
-            {"uniform_dense", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * 1000))},
-            {"uniform_sparse", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * n))},
-            {"binomial", std::bind(gen, std::binomial_distribution<uint64_t>(1ull << 50))}
-//            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<uint64_t>(1ull << 50, 0.3))},
-//            {"geometric", std::bind(gen, std::geometric_distribution<uint64_t>(1e-10))},
+        std::vector<std::pair<std::string, std::function<std::vector<long double>()>>> distributions = {
+            {"uniform_dense", std::bind(gen, std::uniform_real_distribution<long double>(0, n * 1000))},
+            {"uniform_sparse", std::bind(gen, std::uniform_real_distribution<long double>(0, n * n))},
+//            {"binomial", std::bind(gen, std::binomial_distribution<long double>(1ull << 50))},
+//            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<long double>(1ull << 50, 0.3))},
+//            {"geometric", std::bind(gen, std::geometric_distribution<long double>(1e-10))},
         };
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
-        OUT_VERBOSE("Total memory for data is " << to_metric(n * record_size, 2, true) << "B")
-        benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t)>(record_size, ratio.Get());
-//        for (auto&[name, gen_data] : distributions) {
-//          benchmark_presaved<uint64_t>(name, record_size, ratio.Get());
-//          benchmark_all<uint64_t, ALL_CLASSES(uint64_t) >(name, gen_data(), record_size, ratio.Get(), workload.Get());
-//        }
+        // benchmark_presaved<uint64_t, ALL_CLASSES(uint64_t)>(record_size, ratio.Get());
+        for (auto&[name, gen_data] : distributions) {
+          benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
+          benchmark_binary_search<long double>(name, gen_data(), ratio.Get());
+        }
     }
 
-    if (i64.Get())
-        read_ints_helper<int64_t>(files, value_size.Get() + sizeof(int64_t), ratio.Get(), workload.Get());
-    if (u64.Get())
-        read_ints_helper<uint64_t>(files, value_size.Get() + sizeof(uint64_t), ratio.Get(), workload.Get());
+//    if (i64.Get())
+//        read_ints_helper<int64_t>(files, value_size.Get() + sizeof(int64_t), ratio.Get(), workload.Get());
+//    if (u64.Get())
+//        read_ints_helper<uint64_t>(files, value_size.Get() + sizeof(uint64_t), ratio.Get(), workload.Get());
 
     return 0;
 }
