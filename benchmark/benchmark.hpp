@@ -356,7 +356,7 @@ size_t benchmark_all(const std::string &filename,
     using class_type = typename decltype(t)::type;
     auto name = demangle(typeid(class_type).name());
     auto[build_ms, query_ns, bytes] = benchmark<class_type>(data.begin(), data.end(), queries);
-    std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
+    //std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
     min_query_ns = std::min(min_query_ns, query_ns);
   });
 
@@ -506,7 +506,7 @@ size_t benchmark_binary(const std::string &filename,
   std::vector<K> queries = generate_queries(data.begin(), data.end(), lookup_ratio);
 
   auto query_ns = benchmark_simple_binary(data.begin(), data.end(), queries);
-  std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
+  //std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
   
   auto t_start = timer::now();
   std::vector<K> data_optimized = data;
@@ -515,7 +515,7 @@ size_t benchmark_binary(const std::string &filename,
   auto building = std::chrono::duration_cast<std::chrono::milliseconds>(t_finish - t_start).count();
 
   auto query_ns_optimized = benchmark_optimized_binary(data_optimized.begin(), data_optimized.end(), queries);
-  std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized << std::endl;
+  //std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized << std::endl;
 
   return query_ns_optimized;
 }

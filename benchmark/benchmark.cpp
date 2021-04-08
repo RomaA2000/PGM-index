@@ -56,6 +56,27 @@ void read_ints_helper(args::PositionalList<std::string> &files,
 }
 
 
+long double FindFraq (size_t n)
+{
+    int count = 0;
+    while (n > 1)
+    {
+        n /= 10;
+        count++;
+    }
+    
+    count -= 2;
+    long double fraq = 1.0;
+
+    for (int i = 0; i < count; i++)
+    {
+        fraq /= 10.0;
+    }
+
+    return fraq;
+}
+
+
 int main(int argc, char **argv) {
     using namespace args;
     ArgumentParser p("Benchmark for the PGM-index library.");
@@ -121,19 +142,23 @@ int main(int argc, char **argv) {
         };
         std::vector<std::pair<std::string, std::function<std::vector<long double>()>>> distributions = {
             {"exponential", [n]() {
-                long double base = 1.00001;
+                long double fraq = FindFraq(n);
+                long double base = 1.0 + fraq;
                 std::vector<long double> data;
                 data.push_back(base);
                 for (int i = 1; i < n; i++)
                 {
                     data.push_back(data[i-1] * base);
                 }
+
                 static int count = 0;
                 count++;
                 if (count == 1)
                 {
+                    std::cout << "fraq = "<< fraq << std::endl;
                     std::cout << "Maximum of exponent: " << data[n-1] << std::endl;
                 }
+                
                 return data;} },
 /*
             {"uniform_dense", std::bind(gen, std::uniform_real_distribution<long double>(0, n * 1000))},
@@ -145,8 +170,11 @@ int main(int argc, char **argv) {
         };
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         
-        double mean_advantage = 0.0;
-        size_t num_tests = 5;
+        double min_advantage = 10000;
+        size_t num_tests = 1;
+
+        std::cout << std::endl;
+        auto t0 = timer::now();
 
         for (size_t i = 0; i < num_tests; i++)
         {
@@ -154,13 +182,16 @@ int main(int argc, char **argv) {
               double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
               double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
 
-              mean_advantage += min_pgm_ns / min_bin_ns;
+              min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
             }
         }
 
-        mean_advantage *= 100;
-        mean_advantage /= num_tests;
-        std::cout << "mean_advantage = " << mean_advantage << "%" << std::endl;
+        auto t1 = timer::now();
+        auto tests_s = std::chrono::duration_cast<std::chrono::seconds>(t1 - t0).count();
+
+        min_advantage *= 100;
+        std::cout << "min_advantage = " << min_advantage << "%" << std::endl;
+        std::cout << "test_time = " << tests_s << "s" << std::endl;
     }
 
 
