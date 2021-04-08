@@ -37,6 +37,8 @@ bool global_verbose = false;
 #define IF_VERBOSE(X) if (global_verbose) { X; }
 #define OUT_VERBOSE(X) if (global_verbose) { std::cout << "# " << X << std::endl; }
 
+// #define PRINT_ALL_TIMES 1
+
 using timer = std::chrono::high_resolution_clock;
 
 template<typename T>
@@ -338,7 +340,7 @@ template<typename... Ts, typename TF>
 void for_types(TF &&f) { (f(type_wrapper<Ts>{}), ...); }
 
 template<typename K, typename... Args>
-size_t benchmark_all(const std::string &filename,
+double benchmark_all(const std::string &filename,
                    std::vector<K> data,
                    double lookup_ratio,
                    const std::string &workload) {
@@ -351,13 +353,18 @@ size_t benchmark_all(const std::string &filename,
     OUT_VERBOSE("Generated " << to_metric(m) << " queries, " << to_metric(m * lookup_ratio) << " are lookups")
   }
 
-  size_t min_query_ns = 10000;
+  double min_query_ns = 10000.0;
+
   for_types<Args...>([&](auto t) {
     using class_type = typename decltype(t)::type;
     auto name = demangle(typeid(class_type).name());
     auto[build_ms, query_ns, bytes] = benchmark<class_type>(data.begin(), data.end(), queries);
-    //std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
-    min_query_ns = std::min(min_query_ns, query_ns);
+    
+    #ifdef PRINT_ALL_TIMES
+      std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
+    #endif
+    
+    min_query_ns = std::min(min_query_ns, static_cast<double>(query_ns));
   });
 
   return min_query_ns;
@@ -506,8 +513,11 @@ size_t benchmark_binary(const std::string &filename,
   std::vector<K> queries = generate_queries(data.begin(), data.end(), lookup_ratio);
 
   auto query_ns = benchmark_simple_binary(data.begin(), data.end(), queries);
-  //std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
   
+  #ifdef PRINT_ALL_TIMES
+    std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
+  #endif
+
   auto t_start = timer::now();
   std::vector<K> data_optimized = data;
   eytzinger_maker(data_optimized.begin(), data_optimized.end(), data.begin());
@@ -515,7 +525,10 @@ size_t benchmark_binary(const std::string &filename,
   auto building = std::chrono::duration_cast<std::chrono::milliseconds>(t_finish - t_start).count();
 
   auto query_ns_optimized = benchmark_optimized_binary(data_optimized.begin(), data_optimized.end(), queries);
-  //std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized << std::endl;
+  
+  #ifdef PRINT_ALL_TIMES
+    std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized << std::endl;
+  #endif
 
   return query_ns_optimized;
 }

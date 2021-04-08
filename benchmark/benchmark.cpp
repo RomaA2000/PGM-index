@@ -56,28 +56,12 @@ void read_ints_helper(args::PositionalList<std::string> &files,
 }
 
 
-long double FindFraq (size_t n)
-{
-    int count = 0;
-    while (n > 1)
-    {
-        n /= 10;
-        count++;
-    }
-    
-    count -= 2;
-    long double fraq = 1.0;
-
-    for (int i = 0; i < count; i++)
-    {
-        fraq /= 10.0;
-    }
-
-    return fraq;
-}
-
-
 int main(int argc, char **argv) {
+
+    double parametr_exp = static_cast<double>(atoi(argv[argc - 2]));
+    size_t parametr_tests = static_cast<size_t>(atoi(argv[argc - 1]));
+    argc -= 2;
+
     using namespace args;
     ArgumentParser p("Benchmark for the PGM-index library.");
     p.helpParams.flagindent = 2;
@@ -128,8 +112,11 @@ int main(int argc, char **argv) {
     }
 
     global_verbose = verbose.Get();
-    std::cout << "dataset,class_name,build_ms,bytes,query_ns" << std::endl;
-
+    
+    #ifdef PRINT_ALL_TIMES
+        std::cout << "dataset,class_name,build_ms,bytes,query_ns" << std::endl;
+    #endif
+    
     if (synthetic) {
         auto record_size = value_size.Get() + sizeof(uint64_t);
         auto n = synthetic.Get();
@@ -141,8 +128,8 @@ int main(int argc, char **argv) {
             return out;
         };
         std::vector<std::pair<std::string, std::function<std::vector<long double>()>>> distributions = {
-            {"exponential", [n]() {
-                long double fraq = FindFraq(n);
+            {"exponential", [n, parametr_exp]() {
+                long double fraq = parametr_exp / n;
                 long double base = 1.0 + fraq;
                 std::vector<long double> data;
                 data.push_back(base);
@@ -155,6 +142,7 @@ int main(int argc, char **argv) {
                 count++;
                 if (count == 1)
                 {
+                    std::cout << "parametr_exp = " << parametr_exp << std::endl;
                     std::cout << "fraq = "<< fraq << std::endl;
                     std::cout << "Maximum of exponent: " << data[n-1] << std::endl;
                 }
@@ -171,7 +159,16 @@ int main(int argc, char **argv) {
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         
         double min_advantage = 10000;
-        size_t num_tests = 1;
+        double mean_advantage = 0.0;
+        size_t num_tests = parametr_tests / n;
+        if (n == 1e8 || n == 1e9)
+        {
+            num_tests = 100;
+        }
+
+        std::cout << std::endl;
+        std::cout << "parametr_tests = " << parametr_tests << std::endl;
+        std::cout << "num_tests = " << num_tests;
 
         std::cout << std::endl;
         auto t0 = timer::now();
@@ -183,6 +180,7 @@ int main(int argc, char **argv) {
               double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
 
               min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
+              mean_advantage += min_pgm_ns / min_bin_ns;
             }
         }
 
@@ -190,15 +188,12 @@ int main(int argc, char **argv) {
         auto tests_s = std::chrono::duration_cast<std::chrono::seconds>(t1 - t0).count();
 
         min_advantage *= 100;
-        std::cout << "min_advantage = " << min_advantage << "%" << std::endl;
+        mean_advantage /= num_tests;
+        mean_advantage *= 100;
+        std::cout << "min_advantage  = " << min_advantage << "%" << std::endl;
+        std::cout << "mean_advantage = " << mean_advantage << "%" << std::endl;
         std::cout << "test_time = " << tests_s << "s" << std::endl;
     }
-
-
-//    if (i64.Get())
-//        read_ints_helper<int64_t>(files, value_size.Get() + sizeof(int64_t), ratio.Get(), workload.Get());
-//    if (u64.Get())
-//        read_ints_helper<uint64_t>(files, value_size.Get() + sizeof(uint64_t), ratio.Get(), workload.Get());
 
     return 0;
 }
