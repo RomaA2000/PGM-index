@@ -42,6 +42,7 @@
 #define ALL_CLASSES_FLOATING(K) PGM_CLASSES_FLOATING(K)
 //BPGM_CLASSES_FLOATING(K), EFPGM_CLASSES_FLOATING(K), CPGM_CLASSES_FLOATING(K)
 
+double benchmark_statictic(std::string basicString, std::vector<long double> vector, int &get);
 template<typename K>
 void read_ints_helper(args::PositionalList<std::string> &files,
                       size_t record_size,
@@ -58,9 +59,9 @@ void read_ints_helper(args::PositionalList<std::string> &files,
 
 int main(int argc, char **argv) {
 
-    double parametr_exp = static_cast<double>(atoi(argv[argc - 2]));
-    size_t parametr_tests = static_cast<size_t>(atoi(argv[argc - 1]));
-    argc -= 2;
+//    double parametr_exp = static_cast<double>(atoi(argv[argc - 2]));
+//    size_t parametr_tests = static_cast<size_t>(atoi(argv[argc - 1]));
+//    argc -= 2;
 
     using namespace args;
     ArgumentParser p("Benchmark for the PGM-index library.");
@@ -116,72 +117,73 @@ int main(int argc, char **argv) {
     #ifdef PRINT_ALL_TIMES
         std::cout << "dataset,class_name,build_ms,bytes,query_ns" << std::endl;
     #endif
-    
+
+    size_t std_dev = 1000;
     if (synthetic) {
         auto record_size = value_size.Get() + sizeof(uint64_t);
         auto n = synthetic.Get();
         std::mt19937 generator(std::random_device{}());
         auto gen = [&](auto distribution) {
+            auto noize = std::normal_distribution<long double>(0, std_dev);
             std::vector<long double> out(n);
-            std::generate(out.begin(), out.end(), [&] { return distribution(generator); });
+            std::generate(out.begin(), out.end(), [&] { return distribution(generator) + noize(generator);});
             std::sort(out.begin(), out.end());
             return out;
         };
         std::vector<std::pair<std::string, std::function<std::vector<long double>()>>> distributions = {
-            {"exponential", [n, parametr_exp]() {
-                long double fraq = parametr_exp / n;
-                long double base = 1.0 + fraq;
-                std::vector<long double> data;
-                data.push_back(base);
-                for (int i = 1; i < n; i++)
-                {
-                    data.push_back(data[i-1] * base);
-                }
-
-                static int count = 0;
-                count++;
-                if (count == 1)
-                {
-                    std::cout << "parametr_exp = " << parametr_exp << std::endl;
-                    std::cout << "fraq = "<< fraq << std::endl;
-                    std::cout << "Maximum of exponent: " << data[n-1] << std::endl;
-                }
-                
-                return data;} },
-/*
+//            {"exponential", [n, parametr_exp]() {
+//                long double fraq = parametr_exp / n;
+//                long double base = 1.0 + fraq;
+//                std::vector<long double> data;
+//                data.push_back(base);
+//                for (int i = 1; i < n; i++)
+//                {
+//                    data.push_back(data[i-1] * base);
+//                }
+//
+//                static int count = 0;
+//                count++;
+//                if (count == 1)
+//                {
+//                    std::cout << "parametr_exp = " << parametr_exp << std::endl;
+//                    std::cout << "fraq = "<< fraq << std::endl;
+//                    std::cout << "Maximum of exponent: " << data[n-1] << std::endl;
+//                }
+//
+//                return data;} },
             {"uniform_dense", std::bind(gen, std::uniform_real_distribution<long double>(0, n * 1000))},
-            {"uniform_sparse", std::bind(gen, std::uniform_real_distribution<long double>(0, n * n))},
-            {"binomial", std::bind(gen, std::binomial_distribution<int>(1ull << 50))},
-            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<int>(1ull << 50, 0.3))},
-            {"geometric", std::bind(gen, std::geometric_distribution<int>(1e-10))},
-*/
+//            {"uniform_sparse", std::bind(gen, std::uniform_real_distribution<long double>(0, n * n))},
+//            {"normal",  std::bind(gen, std::normal_distribution<long double>(0, n))}
+//            {"binomial", std::bind(gen, std::binomial_distribution<int>(1ull << 50))},
+//            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<int>(1ull << 50, 0.3))},
+//            {"geometric", std::bind(gen, std::geometric_distribution<int>(1e-10))},
         };
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         
         double min_advantage = 10000;
         double mean_advantage = 0.0;
-        size_t num_tests = parametr_tests / n;
-        if (n == 1e8 || n == 1e9)
-        {
-            num_tests = 100;
-        }
-
+        double min_advantage_stat = 10000;
+        double mean_advantage_stat = 0.0;
+//        size_t num_tests = parametr_tests / n;
+//        if (n == 1e8 || n == 1e9)
+//        {
+//            num_tests = 100;
+//        }
+        size_t num_tests = 1;
         std::cout << std::endl;
-        std::cout << "parametr_tests = " << parametr_tests << std::endl;
         std::cout << "num_tests = " << num_tests;
 
         std::cout << std::endl;
         auto t0 = timer::now();
 
-        for (size_t i = 0; i < num_tests; i++)
-        {
-            for (auto&[name, gen_data] : distributions) {
-              double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
-              double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
-
-              min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
-              mean_advantage += min_pgm_ns / min_bin_ns;
-            }
+        for (auto&[name, gen_data] : distributions) {
+          double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
+          double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
+          double min_stat_ns = benchmark_statictic<long double>(name, gen_data(), ratio.Get(), n * 1000, std_dev);
+          min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
+          min_advantage_stat = std::min(min_advantage_stat, min_pgm_ns / min_stat_ns);
+          mean_advantage += min_pgm_ns / min_bin_ns;
+          mean_advantage_stat += min_pgm_ns / min_stat_ns;
         }
 
         auto t1 = timer::now();

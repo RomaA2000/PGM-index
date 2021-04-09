@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #pragma once
+#define PRINT_ALL_TIMES
 
 #include <sys/stat.h>
 #include <algorithm>
@@ -359,7 +360,7 @@ double benchmark_all(const std::string &filename,
     using class_type = typename decltype(t)::type;
     auto name = demangle(typeid(class_type).name());
     auto[build_ms, query_ns, bytes] = benchmark<class_type>(data.begin(), data.end(), queries);
-    
+
     #ifdef PRINT_ALL_TIMES
       std::cout << filename << ",\"" << name << "\", " << build_ms << ", " << bytes << ", " << query_ns << std::endl;
     #endif
@@ -513,7 +514,7 @@ size_t benchmark_binary(const std::string &filename,
   std::vector<K> queries = generate_queries(data.begin(), data.end(), lookup_ratio);
 
   auto query_ns = benchmark_simple_binary(data.begin(), data.end(), queries);
-  
+
   #ifdef PRINT_ALL_TIMES
     std::cout << filename << ",\"" << "Simple_binary_search" << "\", " << 0 << ", " << query_ns << std::endl;
   #endif
@@ -525,10 +526,52 @@ size_t benchmark_binary(const std::string &filename,
   auto building = std::chrono::duration_cast<std::chrono::milliseconds>(t_finish - t_start).count();
 
   auto query_ns_optimized = benchmark_optimized_binary(data_optimized.begin(), data_optimized.end(), queries);
-  
+
   #ifdef PRINT_ALL_TIMES
     std::cout << filename << ",\"" << "Optimized_binary_search" << "\", " << building << ", " << query_ns_optimized << std::endl;
   #endif
 
   return query_ns_optimized;
+}
+
+
+template<typename RandomIt>
+uint64_t
+benchmark_stat_with_noize(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::value_type> &queries, size_t n, size_t delta) {
+  using K = typename RandomIt::value_type;
+  auto size = n;
+  auto t2 = timer::now();
+  uint64_t verb = 0;
+  uint64_t cnt = 0;
+  for (auto &q : queries) {
+    if (q < *begin) {
+      cnt += 0;
+    } else if (q > *(end - 1)) {
+      cnt += end - begin;
+    } else {
+      auto left = std::max(begin, begin + size_t(q / 1000.0) - delta);
+      auto right = std::min(end, begin + size_t(q / 1000.0) + delta);
+      if ((*left > q) || (*(right - 1) < q)) {
+        cnt += std::distance(begin, std::lower_bound(begin, end, q));
+      } else {
+        cnt += std::distance(begin, std::lower_bound(left, right, q));
+        verb += 1;
+      }
+    }
+  }
+  std::cout << (double(verb) / double(queries.size())) << std::endl;
+  [[maybe_unused]] volatile auto tmp = cnt;
+  auto t3 = timer::now();
+  auto query_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count() / queries.size();
+  return query_ns;
+}
+
+template<typename K>
+K benchmark_statictic(const std::string & filename, const std::vector<K> &data, double lookup_ratio, size_t n, size_t delta) {
+  std::vector<K> queries = generate_queries(data.begin(), data.end(), lookup_ratio);
+  auto query_ns_stat = benchmark_stat_with_noize(data.begin(), data.end(), queries, n, 3 * delta);
+  #ifdef PRINT_ALL_TIMES
+  std::cout << filename << ",\"" << "Stat_search" << "\", " << 0 << ", " << query_ns_stat << std::endl;
+  #endif
+  return query_ns_stat;
 }
