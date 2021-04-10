@@ -58,9 +58,8 @@ void read_ints_helper(args::PositionalList<std::string> &files,
 
 int main(int argc, char **argv) {
 
-    double parametr_exp = static_cast<double>(atoi(argv[argc - 2]));
-    size_t parametr_tests = static_cast<size_t>(atoi(argv[argc - 1]));
-    argc -= 2;
+    double parametr_exp = static_cast<double>(atoi(argv[argc - 1]));
+    argc -= 1;
 
     using namespace args;
     ArgumentParser p("Benchmark for the PGM-index library.");
@@ -160,11 +159,6 @@ int main(int argc, char **argv) {
         
         double min_advantage = 10000;
         double mean_advantage = 0.0;
-        size_t num_tests = parametr_tests / n;
-        if (n == 1e8 || n == 1e9)
-        {
-            num_tests = 100;
-        }
 
         std::cout << std::endl;
         std::cout << "parametr_tests = " << parametr_tests << std::endl;
@@ -173,16 +167,15 @@ int main(int argc, char **argv) {
         std::cout << std::endl;
         auto t0 = timer::now();
 
-        for (size_t i = 0; i < num_tests; i++)
-        {
-            for (auto&[name, gen_data] : distributions) {
-              double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
-              double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
 
-              min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
-              mean_advantage += min_pgm_ns / min_bin_ns;
-            }
+        for (auto&[name, gen_data] : distributions) {
+          double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
+          double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
+
+          min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
+          mean_advantage += min_pgm_ns / min_bin_ns;
         }
+
 
         auto t1 = timer::now();
         auto tests_s = std::chrono::duration_cast<std::chrono::seconds>(t1 - t0).count();

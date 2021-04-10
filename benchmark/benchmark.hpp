@@ -313,10 +313,10 @@ benchmark(RandomIt begin, RandomIt end, const std::vector<typename RandomIt::val
 
 template<typename RandomIt>
 std::vector<typename RandomIt::value_type>
-generate_queries(RandomIt first, RandomIt last, double lookup_ratio, size_t max_queries = 10000000) {
+generate_queries(RandomIt first, RandomIt last, double lookup_ratio, size_t max_queries = 1e8) {
   using value_type = typename RandomIt::value_type;
   auto n = std::distance(first, last);
-  auto num_queries = std::min<size_t>(n / 10, max_queries);
+  auto num_queries = max_queries;
   auto num_lookups = size_t(num_queries * lookup_ratio);
   std::uniform_real_distribution<value_type> key_distribution(*first, *std::prev(last));
   std::uniform_real_distribution<value_type> pos_distribution(0, n - 1);
