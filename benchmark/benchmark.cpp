@@ -124,13 +124,12 @@ int main(int argc, char **argv) {
         auto n = synthetic.Get();
         std::mt19937 generator(std::random_device{}());
         auto gen = [&](auto distribution) {
-            auto noize = std::normal_distribution<long double>(0, std_dev);
-            std::vector<long double> out(n);
-            std::generate(out.begin(), out.end(), [&] { return distribution(generator) + noize(generator);});
+            std::vector<uint64_t> out(n);
+            std::generate(out.begin(), out.end(), [&] { return distribution(generator);});
             std::sort(out.begin(), out.end());
             return out;
         };
-        std::vector<std::pair<std::string, std::function<std::vector<long double>()>>> distributions = {
+        std::vector<std::pair<std::string, std::function<std::vector<uint64_t>()>>> distributions = {
 //            {"exponential", [n, parametr_exp]() {
 //                long double fraq = parametr_exp / n;
 //                long double base = 1.0 + fraq;
@@ -151,12 +150,12 @@ int main(int argc, char **argv) {
 //                }
 //
 //                return data;} },
-            {"uniform_dense", std::bind(gen, std::uniform_real_distribution<long double>(0, n * 1000))},
-//            {"uniform_sparse", std::bind(gen, std::uniform_real_distribution<long double>(0, n * n))},
-//            {"normal",  std::bind(gen, std::normal_distribution<long double>(0, n))}
-//            {"binomial", std::bind(gen, std::binomial_distribution<int>(1ull << 50))},
-//            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<int>(1ull << 50, 0.3))},
-//            {"geometric", std::bind(gen, std::geometric_distribution<int>(1e-10))},
+            {"uniform_dense", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * 1000))},
+            {"uniform_sparse", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * n))},
+            {"normal",  std::bind(gen, std::normal_distribution<uint64_t>(0, n))},
+            {"binomial", std::bind(gen, std::binomial_distribution<uint64_t>(1ull << 50))},
+            {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<uint64_t>(1ull << 50, 0.3))},
+            {"geometric", std::bind(gen, std::geometric_distribution<uint64_t>(1e-10))},
         };
         OUT_VERBOSE("Generating " << to_metric(n) << " elements (8-byte keys + " << value_size.Get() << "-byte values)")
         
@@ -177,13 +176,7 @@ int main(int argc, char **argv) {
         auto t0 = timer::now();
 
         for (auto&[name, gen_data] : distributions) {
-          double min_pgm_ns = benchmark_all<long double, ALL_CLASSES_FLOATING(long double)>(name, gen_data(), ratio.Get(), workload.Get());
-          double min_bin_ns = benchmark_binary<long double>(name, gen_data(), ratio.Get());
-          double min_stat_ns = benchmark_statictic<long double>(name, gen_data(), ratio.Get(), n * 1000, std_dev);
-          min_advantage = std::min(min_advantage, min_pgm_ns / min_bin_ns);
-          min_advantage_stat = std::min(min_advantage_stat, min_pgm_ns / min_stat_ns);
-          mean_advantage += min_pgm_ns / min_bin_ns;
-          mean_advantage_stat += min_pgm_ns / min_stat_ns;
+          uint64_t min_bin_ns = benchmark_binary<uint64_t>(name, gen_data(), ratio.Get());
         }
 
         auto t1 = timer::now();
@@ -194,7 +187,6 @@ int main(int argc, char **argv) {
         mean_advantage *= 100;
         std::cout << "min_advantage  = " << min_advantage << "%" << std::endl;
         std::cout << "mean_advantage = " << mean_advantage << "%" << std::endl;
-        std::cout << "test_time = " << tests_s << "s" << std::endl;
     }
 
     return 0;

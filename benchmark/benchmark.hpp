@@ -319,8 +319,8 @@ generate_queries(RandomIt first, RandomIt last, double lookup_ratio, size_t max_
   auto n = std::distance(first, last);
   auto num_queries = std::min<size_t>(n / 10, max_queries);
   auto num_lookups = size_t(num_queries * lookup_ratio);
-  std::uniform_real_distribution<value_type> key_distribution(*first, *std::prev(last));
-  std::uniform_real_distribution<value_type> pos_distribution(0, n - 1);
+  std::uniform_int_distribution<value_type> key_distribution(*first, *std::prev(last));
+  std::uniform_int_distribution<value_type> pos_distribution(0, n - 1);
   std::mt19937 generator(std::random_device{}());
   std::vector<value_type> queries;
   queries.reserve(num_queries);
