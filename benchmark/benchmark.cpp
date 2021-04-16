@@ -152,7 +152,6 @@ int main(int argc, char **argv) {
 //                return data;} },
             {"uniform_dense", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * 1000))},
             {"uniform_sparse", std::bind(gen, std::uniform_int_distribution<uint64_t>(0, n * n))},
-            {"normal",  std::bind(gen, std::normal_distribution<uint64_t>(0, n))},
             {"binomial", std::bind(gen, std::binomial_distribution<uint64_t>(1ull << 50))},
             {"negative_binomial", std::bind(gen, std::negative_binomial_distribution<uint64_t>(1ull << 50, 0.3))},
             {"geometric", std::bind(gen, std::geometric_distribution<uint64_t>(1e-10))},
